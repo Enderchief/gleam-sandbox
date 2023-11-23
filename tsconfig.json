@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "declaration": true,
+    "lib": ["DOM", "ESNext"],
+    "module": "NodeNext",
+    "target": "es2022",
+    "paths": {
+      "@assets/*": ["./assets/*"],
+      "hex:/*": ["./build/dev/javascript/*"]
+    },
+    "allowArbitraryExtensions": true,
+    "plugins": [{"name": "ts-gleam"}]
+  },
+  "exclude": ["build/*", "external_gleam/*", "./vite.config.js"],
+  "include": ["src/*"]
+}
