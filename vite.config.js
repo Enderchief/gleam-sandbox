@@ -2,7 +2,6 @@ import * as path from 'node:path';
 import { defineConfig } from 'vite';
 import gleam from 'vite-gleam';
 import inspect from 'vite-plugin-inspect';
-import vercel from "vite-plugin-vercel"
 import { buildParserFile } from '@lezer/generator';
 import UnoCss from 'unocss/vite';
 
@@ -27,6 +26,7 @@ export default defineConfig({
         },
     },
     build: {
+        target: ["chrome90", "firefox90", "safari17.0"],
         sourcemap: true,
         rollupOptions: {
             input: {
@@ -35,5 +35,8 @@ export default defineConfig({
             },
         },
     },
-    plugins: [gleam(), lezerPlugin(), UnoCss(), inspect(), vercel()]
+    worker: {
+        format: 'es',
+    },
+    plugins: [gleam(), lezerPlugin(), UnoCss(), inspect()]
 });

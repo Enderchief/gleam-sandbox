@@ -80,8 +80,8 @@ devDependencies:
     specifier: ^4.5.0
     version: 4.5.0
   vite-gleam:
-    specifier: ^0.3.0
-    version: 0.3.0
+    specifier: ^0.4.0
+    version: 0.4.0
   vite-plugin-inspect:
     specifier: ^0.7.42
     version: 0.7.42(vite@4.5.0)
@@ -1911,8 +1911,8 @@ packages:
     dev: true
     optional: true
 
-  /vite-gleam@0.3.0:
-    resolution: {integrity: sha512-rmJyRLbZLxObLfOXZ6HScn1rd6B5bnzaYBwvRXHT0Lwi6NlluxdI/FqXpHFmIZwl5MbDpFLXbevCwnPelxAe6w==}
+  /vite-gleam@0.4.0:
+    resolution: {integrity: sha512-3XEVPLP6ggX0v9RiDtuBmfNfFblVaw4xva0hOmZNoDhQy0Q5l8O8d0+4ZyVAzQNgPiYEL2npZGJIM8Ma1+SI9Q==}
     dependencies:
       magic-string: 0.30.5
       rollup: 3.29.4

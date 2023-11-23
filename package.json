@@ -15,7 +15,7 @@
     "ts-gleam": "^1.0.1",
     "typescript": "^5.2.2",
     "vite": "^4.5.0",
-    "vite-gleam": "^0.3.0",
+    "vite-gleam": "^0.4.0",
     "vite-plugin-inspect": "^0.7.42",
     "vite-plugin-vercel": "^2.0.0"
   },
