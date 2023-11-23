@@ -1,0 +1,11 @@
+#/bin/sh
+# NOTE: This file is created for vercel to run in order to install Gleam
+# You should not run it
+
+curl -Lo gleam.tar.gz https://github.com/gleam-lang/gleam/releases/download/v0.32.4/gleam-v0.32.4-x86_64-unknown-linux-musl.tar.gz
+tar xfv ./gleam.tar.gz
+./gleam --version
+dir="$(echo $PWD | sed 's/\//\\\//g')"
+str="s/execSync(\"gleam/execSync(\"$dir\/gleam/g";
+sed -i -e $str ./node_modules/vite-gleam/dist/index.mjs
+pnpm install
