@@ -27,7 +27,7 @@ Gleam Sandbox aims to have a sandboxed Gleam environment which can be used for p
 - [ ] Sharable Links
 - [ ] resizable UI (perhaps a two panel setup where the code overlaps the iframe so that it can be hidden)
 - [ ] make layout better suited for being embedded
-- [ ] cache deps locally (in memory after every build and in storage for revisiting the site)
+- [x] cache deps locally (in memory after every build and in storage for revisiting the site)
 - [ ] [LSP support](https://github.com/FurqanSoftware/codemirror-languageserver). perhaps fork and fix issues
 - [ ] Tidy Lustre code
 - [ ] Import code [npm](https://npmjs.com) packages in JavaScript source in the sandbox by changing import to `https://esm.sh/PACKAGE`.
