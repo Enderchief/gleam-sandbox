@@ -2,9 +2,7 @@ import { entries } from 'streaming-tar';
 import { connect } from '@planetscale/database';
 import { z } from 'zod';
 
-export const config = {
-  runtime: 'edge',
-};
+export const config = {};
 
 export class Client {
   #repo = 'https://repo.hex.pm/';
@@ -47,7 +45,6 @@ export class Client {
     for await (const entry of entries(rawData.body)) {
       if (entry.name === 'contents.tar.gz') {
         const tarball = entry.body;
-        // @ts-ignore: vercel cli thinks this doesnt exist :p
         const stream = tarball.pipeThrough(new DecompressionStream('gzip'));
         for await (const e of entries(stream)) {
           structure[e.name] = await e.text();
@@ -78,20 +75,26 @@ const client = new Client();
 const schema = z.record(z.string());
 
 /**
- * @param request {Request}
+ * @param {import("@vercel/node").VercelRequest} request
+ * @param {import("@vercel/node").VercelResponse} response
+ * @return {undefined}
  */
-export default async function (request) {
-  const contentType = request.headers.get('Content-Type');
+export default async function (request, response) {
+  const contentType = request.headers['content-type'];
   if (contentType !== 'application/json')
-    return json({
+    return response.json({
       error: `invalid content type "${contentType}", expecting "application/json"`,
     });
 
   try {
-    const rawData = await request.json();
+    const rawData = await request.body
+    console.log(typeof rawData, rawData);
     const data = schema.safeParse(rawData);
     if (!data.success)
-      return json({ error: data.error.toString(), type: 'validation' });
+      return response.json({
+        error: data.error.toString(),
+        type: 'validation',
+      });
 
     const dependencies = Object.fromEntries(
       await Promise.all(
@@ -103,9 +106,10 @@ export default async function (request) {
         })
       )
     );
-    return json(dependencies);
+    return response.json(dependencies);
+    // return json(dependencies);
   } catch (e) {
-    return json({ error: `${e}`, type: 'api' });
+    return response.json({ error: `${e}`, type: 'api' });
   }
 
   //   return json({ error: 'this code should not be here', type: 'server' });
