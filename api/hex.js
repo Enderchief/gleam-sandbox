@@ -19,15 +19,11 @@ export class Client {
   }
 
   /**
-   * 
-   * @param {string} name 
-   * @param {string} version 
+   * @param {string} name
+   * @param {string} version
    * @returns {Promise<Record<string, string>>}
    */
-  async fetch_files(
-    name,
-    version
-  ) {
+  async fetch_files(name, version) {
     const res = await this.db.execute(
       `SELECT body from packages WHERE name = ? AND version = ?`,
       [name, version]
@@ -97,26 +93,27 @@ export default async function (request) {
     if (!data.success)
       return json({ error: data.error.toString(), type: 'validation' });
 
-    
-
-    const _temp = await Promise.all(
-      Object.entries(data.data).map(async ([name, version]) => {
-        let _temp = await client.fetch_files(name, version);
-        return _temp;
-      })
+    const dependencies = Object.fromEntries(
+      await Promise.all(
+        Object.entries(data.data).map(async ([name, version]) => {
+          let _temp = await client.fetch_files(name, version);
+          /** @type {[string, Record<string, string>]} */
+          let ret = [`${name}@${version}`, _temp];
+          return ret;
+        })
+      )
     );
-    const dependencies = Object.assign({}, ..._temp);
     return json(dependencies);
   } catch (e) {
     return json({ error: `${e}`, type: 'api' });
   }
 
   //   return json({ error: 'this code should not be here', type: 'server' });
-};
+}
 
 /**
- * @param {any} o 
- * @param {ResponseInit} init 
+ * @param {any} o
+ * @param {ResponseInit} init
  * @returns {Response}
  */
 function json(o, init) {
