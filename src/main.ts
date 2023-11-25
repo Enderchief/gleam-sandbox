@@ -19,8 +19,6 @@ const Element = element().constructor as typeof E;
 const compiler: Worker = new CompileWorker();
 
 compiler.addEventListener('message', (ev) => {
-  console.log('[res]', ev.data);
-
   const _parsed = compilerResponse.safeParse(ev.data);
   if (!_parsed.success) return;
 

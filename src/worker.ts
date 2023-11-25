@@ -2,7 +2,7 @@ import init, { compile } from './compiler/gleam_wasm.js';
 // @ts-ignore
 import wasmURL from 'esbuild-wasm/esbuild.wasm?url';
 import { build, initialize, type Plugin } from 'esbuild-wasm';
-import { compileRequest, compilerResponse, request } from './schema.js';
+import { compilerResponse, request as requestSchema } from './schema.js';
 import { parse } from 'smol-toml';
 
 await init();
@@ -21,7 +21,6 @@ export function virtual(files: Record<string, string>) {
     name: 'playground-virtual-filesystem',
     setup(build) {
       build.onResolve({ filter: /.*/ }, async (args) => {
-        console.log(args);
         if (args.path.startsWith('https://') || args.path.startsWith('http://'))
           return { path: args.path, namespace: 'cdn-import' };
 
@@ -56,6 +55,39 @@ export function virtual(files: Record<string, string>) {
   } satisfies Plugin;
 }
 
+interface Package {
+  tag: string;
+  content: Blob;
+}
+
+const databaseOpenRequest = indexedDB.open('sandbox-deps', 1);
+let db: IDBDatabase;
+
+databaseOpenRequest.onerror = (event) => {
+  console.error('[db] error: ', event);
+  console.log(event.toString());
+};
+// @ts-ignore
+databaseOpenRequest.onsuccess = (event: {
+  target: { result: IDBDatabase };
+}) => {
+  console.log('[req | success] ');
+
+  db = event.target.result;
+};
+databaseOpenRequest.onupgradeneeded = (event: IDBVersionChangeEvent) => {
+  console.log('[req | upgrade] ', event);
+
+  db = databaseOpenRequest.result;
+  const objectStore = db.createObjectStore('deps', { keyPath: 'tag' });
+  objectStore.createIndex('content', 'content', { unique: false });
+
+  objectStore.transaction.oncomplete = (ev) => {};
+  objectStore.transaction.onerror = (ev) => {
+    console.error('[store | trans | err]', ev);
+  };
+};
+
 onmessage = async (ev) => {
   console.log('[worker]', ev.data);
 
@@ -65,7 +97,7 @@ onmessage = async (ev) => {
       result: { error: 'no data supplied' },
     });
 
-  const body = await request.safeParseAsync(ev.data);
+  const body = await requestSchema.safeParseAsync(ev.data);
 
   // @ts-ignore
   if (!body.success) return postMessage({ error: body.error });
@@ -79,33 +111,76 @@ onmessage = async (ev) => {
         type: 'compile',
         result: { error: 'gleam.toml not supplied' },
       });
-    console.log('[raw toml]', rawToml);
 
-    const parsed = parse(rawToml);
-    console.log('[parsed]', parsed);
+    const parsed = parse(rawToml) as { dependencies: Record<string, string> };
 
-    const res = await fetch('/api/hex', {
-      body: JSON.stringify(parsed.dependencies),
-      headers: { 'content-type': 'application/json' },
-      method: 'post',
-    });
+    const store1 = db.transaction(['deps'], 'readwrite').objectStore('deps');
 
-    console.log(res.ok);
+    const promised = (
+      await Promise.all(
+        Object.entries(parsed.dependencies).map(async ([name, version]) => {
+          const pkg = await new Promise<Package>((resolve, reject) => {
+            const pkg_req = store1.get(`${name}@${version}`);
+            pkg_req.onsuccess = (ev) => {
+              resolve((<any>pkg_req.result) as Package);
+            };
+            pkg_req.onerror = (ev) => {
+              reject(ev);
+            };
+          });
+          if (!pkg) return;
 
-    if (!res.ok)
-      return postMessage({
-        type: 'compile',
-        result: { error: await res.text() },
+          const content = JSON.parse(await pkg.content.text());
+          return [pkg.tag, content] as const;
+        })
+      )
+    ).filter((v) => typeof v === 'object');
+    console.log(promised);
+
+    const filetree: Record<string, Record<string, string>> = Object.fromEntries(
+      promised
+    );
+
+    const all_dependency_names: Array<string> = Object.keys(
+      parsed.dependencies
+    );
+
+    for (const key of Object.keys(filetree)) {
+      const [name, _] = key.split('@');
+      if (parsed.dependencies[name]) delete parsed.dependencies[name];
+    }
+
+    if (Object.keys(parsed.dependencies).length) {
+      const res = await fetch('/api/hex', {
+        body: JSON.stringify(parsed.dependencies),
+        headers: { 'content-type': 'application/json' },
+        method: 'post',
       });
 
-    const deps = await res.json();
-    // console.log('[deps]', deps);
+      if (!res.ok)
+        return postMessage({
+          type: 'compile',
+          result: { error: await res.text() },
+        });
 
-    const files = Object.assign(data.files, deps);
-    console.log('[files]\n', files);
+      const deps = (await res.json()) as Record<string, Record<string, string>>;
+      Object.assign(filetree, deps);
+    }
+
+    const store2 = db.transaction(['deps'], 'readwrite').objectStore('deps');
+    Object.keys(filetree).map((key) => {
+      const stringed = JSON.stringify(filetree[key]);
+      const blob = new Blob([stringed]);
+      const obj = { tag: key, content: blob } satisfies Package;
+      store2.put(obj);
+    });
+
+    const deps_files = Object.values(filetree);
+
+    const files = Object.assign(data.files, ...deps_files);
 
     const { Ok, Err } = compile({
-      dependencies: Object.keys(parsed.dependencies || {}),
+      dependencies: all_dependency_names,
       mode: 'Dev',
       sourceFiles: files,
       target: 'javascript',
