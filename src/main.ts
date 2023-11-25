@@ -27,36 +27,36 @@ compiler.addEventListener("message", (ev) => {
   if (data.type === "compile" && (<any>data.result).ok) {
     compiler.postMessage({ type: "bundle", files: (<any>data.result).ok });
   } else if (data.type === "bundle") {
-    const outarea = document.querySelector<HTMLDivElement>("#output");
-    outarea.replaceChildren(createDocument(data.result));
+    // const outarea = document.querySelector<HTMLDivElement>("#output");
+    createDocument(data.result);
   }
 });
 
 function emit(msg: Msg$, state: Model$) {
-  if (msg instanceof Run) {
-    const jsified = Object.fromEntries(
-      state.files.toArray().map((v) => {
-        return [
-          v.path,
-          state.current === v.path
-            ? view.state.doc.toString()
-            : (<EditorState>v.editor).doc.toString(),
-        ] as const;
-      }),
-    );
+  //   if (msg instanceof Run) {
+  const jsified = Object.fromEntries(
+    state.files.toArray().map((v) => {
+      return [
+        v.path,
+        state.current === v.path
+          ? view.state.doc.toString()
+          : (<EditorState>v.editor).doc.toString(),
+      ] as const;
+    }),
+  );
 
-    const body = {
-      type: "compile",
-      dependencies: {},
-      files: jsified,
-      target: "javascript",
-    } satisfies Zod.infer<typeof compileRequest>;
-    compiler.postMessage(body);
-
-    return state;
-  }
+  const body = {
+    type: "compile",
+    dependencies: {},
+    files: jsified,
+    target: "javascript",
+  } satisfies Zod.infer<typeof compileRequest>;
+  compiler.postMessage(body);
 
   return state;
+  //   }
+  //
+  //   return state;
 }
 
 main((elem, value) => {

@@ -6,10 +6,9 @@ import gleam/result
 import gleam/string
 import lustre
 import lustre/attribute.{class, classes, id}
-import lustre/element/html.{button, div, input, li, span, ul}
+import lustre/element/html.{button, div, iframe, input, li, span, ul}
 import lustre/element.{type Element, text}
 import lustre/event
-import plinth/javascript/storage
 
 pub type Editor
 
@@ -129,7 +128,7 @@ pub type Msg {
 
 fn update(emit: fn(Msg, Model) -> Model) {
   fn(state: Model, msg: Msg) -> Model {
-    case msg {
+    let new = case msg {
       Delete(path) ->
         Model(
           state.current,
@@ -184,8 +183,9 @@ fn update(emit: fn(Msg, Model) -> Model) {
             }
         }
 
-      _ -> emit(msg, state)
+      _ -> state
     }
+    emit(msg, new)
   }
 }
 
@@ -271,7 +271,15 @@ fn render(editor: fn(Element(Msg), Model) -> Element(Msg), state: Model) {
       ),
       div(
         [class("b-1 b-gray-3 b-solid h-90 p-2 flex"), id("output")],
-        [text("output here")],
+        [
+          iframe([
+            class("m-0 p-0 grow b-none"),
+            attribute.attribute(
+              "srcdoc",
+              "<pre style='font-size: 1rem'>not built yet</pre>",
+            ),
+          ]),
+        ],
       ),
       button(
         [

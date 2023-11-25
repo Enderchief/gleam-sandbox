@@ -4,10 +4,8 @@ function createBlobUrl(content: string, type: string) {
 }
 
 export function createDocument(bundle: string) {
-  const iframe = document.createElement("iframe");
-  iframe.style.flexGrow = "1";
-  iframe.style.margin = "0";
-  iframe.style.padding = "0";
+  const iframe = document.querySelector<HTMLIFrameElement>("#output>iframe");
+  iframe.removeAttribute("srcdoc");
   iframe.src = createBlobUrl(
     `<!DOCTYPE html>
 <html>
