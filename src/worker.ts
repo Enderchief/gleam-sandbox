@@ -2,7 +2,11 @@ import init, { compile } from "./compiler/gleam_wasm.js";
 // @ts-ignore
 import wasmURL from "esbuild-wasm/esbuild.wasm?url";
 import { build, initialize, type Plugin } from "esbuild-wasm";
-import { compilerResponse, request as requestSchema } from "./schema.js";
+import {
+  compileRequest,
+  compilerResponse,
+  request as requestSchema,
+} from "./schema.js";
 import { parse } from "smol-toml";
 
 await init();
@@ -46,7 +50,7 @@ export function virtual(files: Record<string, string>) {
       build.onLoad({ filter: /.*/, namespace: "cdn-import" }, async (args) => {
         return {
           contents: new Uint8Array(
-            await (await fetch(args.path)).arrayBuffer(),
+            await (await fetch(args.path)).arrayBuffer()
           ),
           loader: "default",
         };
@@ -105,105 +109,7 @@ onmessage = async (ev) => {
   const data = body.data;
 
   if (data.type == "compile") {
-    const rawToml = data.files["/gleam.toml"];
-    if (!rawToml)
-      return postMessage({
-        type: "compile",
-        result: { error: "gleam.toml not supplied" },
-      });
-
-    const parsed = parse(rawToml) as { dependencies: Record<string, string> };
-
-    const store1 = db.transaction(["deps"], "readwrite").objectStore("deps");
-
-    const promised = (
-      await Promise.all(
-        Object.entries(parsed.dependencies).map(async ([name, version]) => {
-          const pkg = await new Promise<Package>((resolve, reject) => {
-            const pkg_req = store1.get(`${name}@${version}`);
-            pkg_req.onsuccess = (ev) => {
-              resolve((<any>pkg_req.result) as Package);
-            };
-            pkg_req.onerror = (ev) => {
-              reject(ev);
-            };
-          });
-          if (!pkg) return;
-
-          const content = JSON.parse(await pkg.content.text());
-          return [pkg.tag, content] as const;
-        }),
-      )
-    ).filter((v) => typeof v === "object");
-    console.log(promised);
-
-    const filetree: Record<string, Record<string, string>> = Object.fromEntries(
-      promised,
-    );
-
-    const all_dependency_names: Array<string> = Object.keys(
-      parsed.dependencies,
-    );
-
-    for (const key of Object.keys(filetree)) {
-      const [name, _] = key.split("@");
-      if (parsed.dependencies[name]) delete parsed.dependencies[name];
-    }
-
-    if (Object.keys(parsed.dependencies).length) {
-      const res = await fetch("/api/hex", {
-        body: JSON.stringify(parsed.dependencies),
-        headers: { "content-type": "application/json" },
-        method: "post",
-      });
-
-      if (!res.ok)
-        return postMessage({
-          type: "compile",
-          result: { error: await res.text() },
-        });
-
-      const deps = (await res.json()) as Record<string, Record<string, string>>;
-      Object.assign(filetree, deps);
-    }
-
-    const store2 = db.transaction(["deps"], "readwrite").objectStore("deps");
-    Object.keys(filetree).map((key) => {
-      const stringed = JSON.stringify(filetree[key]);
-      const blob = new Blob([stringed]);
-      const obj = { tag: key, content: blob } satisfies Package;
-      store2.put(obj);
-    });
-
-    const deps_files = Object.values(filetree);
-
-    const files = Object.assign(data.files, ...deps_files);
-
-    const { Ok, Err } = compile({
-      dependencies: all_dependency_names,
-      mode: "Dev",
-      sourceFiles: files,
-      target: "javascript",
-    });
-
-    if (Err) return postMessage({ type: "compile", result: { error: Err } });
-
-    const entries = [...Ok.entries(), ...Object.entries(data.files!)].map(
-      ([name, content]) => [
-        name
-          .replace(
-            /\/build\/packages\/([\w\d_\-.]+)\/src\/([\w\d_\-.]+)\.mjs/,
-            "/build/dev/javascript/$1/$2.mjs",
-          )
-          .replace(/\/src\/(.+)/, "/build/dev/javascript/gleam-wasm/$1"),
-        content,
-      ],
-    );
-
-    return postMessage({
-      type: "compile",
-      result: { ok: Object.fromEntries(entries) },
-    });
+    return await message_compile(data);
   } else if (data.type === "bundle") {
     console.log("[bundle]");
 
@@ -219,3 +125,106 @@ onmessage = async (ev) => {
     return postMessage({ type: "bundle", result: content });
   }
 };
+
+async function message_compile(data: Zod.infer<typeof compileRequest>) {
+  const rawToml = data.files["/gleam.toml"];
+  if (!rawToml)
+    return postMessage({
+      type: "compile",
+      result: { error: "gleam.toml not supplied" },
+    });
+
+  const parsed = parse(rawToml) as { dependencies: Record<string, string> };
+
+  const store1 = db.transaction(["deps"], "readwrite").objectStore("deps");
+
+  const promised = (
+    await Promise.all(
+      Object.entries(parsed.dependencies).map(async ([name, version]) => {
+        const pkg = await store_get<Package>(store1, `${name}@${version}`)
+        if (!pkg) return;
+
+        const content = JSON.parse(await pkg.content.text());
+        return [pkg.tag, content] as const;
+      })
+    )
+  ).filter((v) => typeof v === "object");
+  console.log(promised);
+
+  const filetree: Record<string, Record<string, string>> = Object.fromEntries(
+    promised
+  );
+
+  const all_dependency_names = Object.keys(parsed.dependencies);
+
+  for (const key of Object.keys(filetree)) {
+    const [name, _] = key.split("@");
+    if (parsed.dependencies[name]) delete parsed.dependencies[name];
+  }
+
+  if (Object.keys(parsed.dependencies).length) {
+    const res = await fetch("/api/hex", {
+      body: JSON.stringify(parsed.dependencies),
+      headers: { "content-type": "application/json" },
+      method: "post",
+    });
+
+    if (!res.ok)
+      return postMessage({
+        type: "compile",
+        result: { error: await res.text() },
+      });
+
+    const deps = (await res.json()) as Record<string, Record<string, string>>;
+    Object.assign(filetree, deps);
+  }
+
+  const store2 = db.transaction(["deps"], "readwrite").objectStore("deps");
+  Object.keys(filetree).map((key) => {
+    const stringed = JSON.stringify(filetree[key]);
+    const blob = new Blob([stringed]);
+    const obj = { tag: key, content: blob } satisfies Package;
+    store2.put(obj);
+  });
+
+  const deps_files = Object.values(filetree);
+
+  const files = Object.assign(data.files, ...deps_files);
+
+  const { Ok, Err } = compile({
+    dependencies: all_dependency_names,
+    mode: "Dev",
+    sourceFiles: files,
+    target: "javascript",
+  });
+
+  if (Err) return postMessage({ type: "compile", result: { error: Err } });
+
+  const entries = [...Ok.entries(), ...Object.entries(data.files!)].map(
+    ([name, content]) => [
+      name
+        .replace(
+          /\/build\/packages\/([\w\d_\-.]+)\/src\/([\w\d_\-.]+)\.mjs/,
+          "/build/dev/javascript/$1/$2.mjs"
+        )
+        .replace(/\/src\/(.+)/, "/build/dev/javascript/gleam-wasm/$1"),
+      content,
+    ]
+  );
+
+  return postMessage({
+    type: "compile",
+    result: { ok: Object.fromEntries(entries) },
+  });
+}
+
+function store_get<Shape>(
+  store: IDBObjectStore,
+  query: Parameters<IDBObjectStore["get"]>[0]
+): Promise<Shape> {
+  return new Promise<Shape>((resolve, reject) => {
+    const req = store.get(query);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = (ev) => reject(ev);
+  });
+}
