@@ -28,15 +28,9 @@ export default defineConfig({
     build: {
         target: ["chrome90", "firefox90", "safari17.0"],
         sourcemap: true,
-        rollupOptions: {
-            input: {
-                main: path.resolve(__dirname, 'index.html'),
-                embed: path.resolve(__dirname, 'embed/index.html')
-            },
-        },
     },
     worker: {
-        format: 'es',
+        format: "es",
     },
     plugins: [gleam(), lezerPlugin(), UnoCss(), inspect()]
 });
