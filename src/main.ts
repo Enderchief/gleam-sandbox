@@ -18,21 +18,24 @@ const Element = element().constructor as typeof E;
 
 const compiler: Worker = new CompileWorker();
 
+let compiling = false;
+
 compiler.addEventListener("message", (ev) => {
   const _parsed = compilerResponse.safeParse(ev.data);
   if (!_parsed.success) return;
 
   const data = _parsed.data;
 
-  if (data.type === "compile" && (Object.hasOwn(data.result, "ok"))) {
-    compiler.postMessage({ type: "bundle", files: (<{ok: Record<string, string>}>data.result).ok });
-  } else if (data.type === "bundle") {
+
+  if (data.type === "bundle") {
     createDocument(data.result);
+    compiling = false;
   }
 });
 
-function emit(msg: Msg$, state: Model$) {
-  //   if (msg instanceof Run) {
+function compile(msg: Msg$, state: Model$) {
+  if (compiling) return state;
+  compiling = true;
   const jsified = Object.fromEntries(
     state.files.toArray().map((v) => {
       return [
@@ -43,6 +46,9 @@ function emit(msg: Msg$, state: Model$) {
       ] as const;
     }),
   );
+  console.log(jsified);
+  console.log(jsified[state.current]);
+  console.log(view.state.doc.toString());
 
   const body = {
     type: "compile",
@@ -53,9 +59,6 @@ function emit(msg: Msg$, state: Model$) {
   compiler.postMessage(body);
 
   return state;
-  //   }
-  //
-  //   return state;
 }
 
 main((elem, value) => {
@@ -74,4 +77,4 @@ main((elem, value) => {
     }, 1);
   }
   return elem;
-}, emit);
+}, compile);
