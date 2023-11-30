@@ -1,5 +1,5 @@
 import init, { compile } from "./compiler/gleam_wasm.js";
-// @ts-ignore
+// @ts-expect-error: valid import
 import wasmURL from "esbuild-wasm/esbuild.wasm?url";
 import { build, initialize, type Plugin } from "esbuild-wasm";
 import {
@@ -71,7 +71,7 @@ databaseOpenRequest.onerror = (event) => {
   console.error("[db] error: ", event);
   console.log(event.toString());
 };
-// @ts-ignore
+// @ts-expect-error: untyped target
 databaseOpenRequest.onsuccess = (event: {
   target: { result: IDBDatabase };
 }) => {
@@ -86,7 +86,7 @@ databaseOpenRequest.onupgradeneeded = (event: IDBVersionChangeEvent) => {
   const objectStore = db.createObjectStore("deps", { keyPath: "tag" });
   objectStore.createIndex("content", "content", { unique: false });
 
-  objectStore.transaction.oncomplete = (ev) => {};
+  objectStore.transaction.oncomplete = () => {};
   objectStore.transaction.onerror = (ev) => {
     console.error("[store | trans | err]", ev);
   };
@@ -103,6 +103,7 @@ onmessage = async (ev) => {
 
   const body = await requestSchema.safeParseAsync(ev.data);
 
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
   if (!body.success) return postMessage({ error: body.error });
 
@@ -141,7 +142,7 @@ async function message_compile(data: Zod.infer<typeof compileRequest>) {
   const promised = (
     await Promise.all(
       Object.entries(parsed.dependencies).map(async ([name, version]) => {
-        const pkg = await store_get<Package>(store1, `${name}@${version}`)
+        const pkg = await store_get<Package>(store1, `${name}@${version}`);
         if (!pkg) return;
 
         const content = JSON.parse(await pkg.content.text());
@@ -158,7 +159,7 @@ async function message_compile(data: Zod.infer<typeof compileRequest>) {
   const all_dependency_names = Object.keys(parsed.dependencies);
 
   for (const key of Object.keys(filetree)) {
-    const [name, _] = key.split("@");
+    const [name] = key.split("@");
     if (parsed.dependencies[name]) delete parsed.dependencies[name];
   }
 

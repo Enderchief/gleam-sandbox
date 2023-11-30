@@ -108,7 +108,7 @@ export const gleamLrLanguage = LRLanguage.define({
     ],
   }),
   languageData: {
-    closeBrackets: { brackets: ["(", "[", "{", '"'] },
+    closeBrackets: { brackets: ["(", "[", "{", "\""] },
     commentTokens: { line: "//" },
   },
 });

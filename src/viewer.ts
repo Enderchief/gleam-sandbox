@@ -11,9 +11,9 @@ export function createDocument(bundle: string) {
 <html>
     <head>
         <script type="module" src="${createBlobUrl(
-          bundle,
-          "text/javascript",
-        )}"></script>
+    bundle,
+    "text/javascript",
+  )}"></script>
     </head>
     <body>
         <div id="app">Hello Gleam!, my id is "app".</div>
