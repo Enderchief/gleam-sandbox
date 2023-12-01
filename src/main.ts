@@ -1,10 +1,10 @@
 import "@assets/main.css";
 import "virtual:uno.css";
-// @ts-ignore: valid import
+// @ts-expect-error: valid import
 import CompileWorker from "./worker.js?worker";
 import { view } from "./ffi.js";
 import { compileRequest, compilerResponse } from "./schema.js";
-import { main, Model$, Msg$, Run } from "./app.gleam";
+import { main, Model$, Msg$ } from "./app.gleam";
 import { element } from "hex:/lustre/lustre/element.mjs";
 import { find } from "hex:/gleam_stdlib/gleam/list.mjs";
 import type { Element as E } from "hex:/lustre/lustre/element.mjs";
@@ -13,7 +13,7 @@ import { createDocument } from "./viewer.js";
 
 let DID_FIRST_MOUNT = false;
 
-// @ts-expect-error
+// @ts-expect-error: works fine
 const Element = element().constructor as typeof E;
 
 const compiler: Worker = new CompileWorker();
@@ -26,8 +26,8 @@ compiler.addEventListener("message", (ev) => {
 
   const data = _parsed.data;
 
+
   if (data.type === "bundle") {
-    // const outarea = document.querySelector<HTMLDivElement>("#output");
     createDocument(data.result);
     compiling = false;
   }
