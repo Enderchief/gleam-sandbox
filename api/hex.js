@@ -122,7 +122,7 @@ export default async function (request, response) {
  */
 function json(o, init) {
   return new Response(JSON.stringify(o), {
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', 'Access-Control-Allow-Origin': '*' },
     status: init?.status,
   });
 }
